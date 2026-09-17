@@ -24,6 +24,7 @@ class Frame:
         self.joints = joints
         self.acc = acc
         self.displacement: Dict[str, csdl.Variable] = {}
+        self.rotation: Dict[str, csdl.Variable] = {}
         self.U = None
 
         # helper function
@@ -145,17 +146,21 @@ class Frame:
             map = beam.map
 
             map_u_to_d_x, map_u_to_d_y, map_u_to_d_z = [], [], []
+            map_u_to_r_x, map_u_to_r_y, map_u_to_r_z = [], [], []
             for i in range(beam.num_nodes):
                 idx = map[i]
                 map_u_to_d_x.append(idx)
                 map_u_to_d_y.append(idx + 1)
                 map_u_to_d_z.append(idx + 2)
-                # extract the (x, y, z) nodal displacement
-                # displacement[beam.name] = displacement[beam.name].set(csdl.slice[i, :], U[idx:idx+3])
+                map_u_to_r_x.append(idx + 3)
+                map_u_to_r_y.append(idx + 4)
+                map_u_to_r_z.append(idx + 5)
 
             reshaped_U = csdl.transpose(csdl.vstack([U[map_u_to_d_x], U[map_u_to_d_y], U[map_u_to_d_z]]))
-            # self.displacement[beam.name] = self.displacement[beam.name].set(csdl.slice[:, :], reshaped_U)
             self.displacement[beam.name] = reshaped_U
+
+            reshaped_R = csdl.transpose(csdl.vstack([U[map_u_to_r_x], U[map_u_to_r_y], U[map_u_to_r_z]]))
+            self.rotation[beam.name] = reshaped_R
 
         return None
     
