@@ -25,6 +25,7 @@ class Beam:
         self.num_nodes = mesh.shape[0]
         self.num_elements = self.num_nodes - 1
         self.loads = None
+        self.distributed_loads = None
         self.extra_inertial_mass = None
         self.fixed_boundary_conditions: List[int] = []
         self.pinned_boundary_conditions: List[int] = []
@@ -38,6 +39,8 @@ class Beam:
         self.transforms = self._vectorized_transforms()
         self.transformed_stiffness = self._transform_stiffness_matrices()
         self.transformed_mass = self._transform_mass_matrices()
+        self.distributed_fixed_end_loads = csdl.Variable(value=np.zeros((self.num_elements, 12)))
+        self.distributed_global_loads = csdl.Variable(value=np.zeros((self.num_elements, 12)))
 
 
         element_masses = self.cs.area * self.lengths * self.density
@@ -82,6 +85,29 @@ class Beam:
             raise ValueError('load must have shape (num_beam_nodes, 6)')
         
         self.loads = load
+
+    def add_distributed_load(self, load: csdl.Variable):
+        if load.shape != (self.num_elements, 6):
+            raise ValueError('distributed load must have shape (num_beam_elements, 6)')
+        self.distributed_loads = load
+        transforms = self.transforms[:, :6, :6]
+        local_load = csdl.einsum(transforms, load, action='ijk,ik->ij')
+        lengths = self.lengths
+        fixed_end = csdl.Variable(value=np.zeros((self.num_elements, 12)))
+        for force_index, rotation_index, sign in ((1, 5, 1.0), (2, 4, -1.0)):
+            force = local_load[:, force_index] * lengths / 2.0
+            moment = sign * local_load[:, force_index] * lengths**2 / 12.0
+            fixed_end = fixed_end.set(csdl.slice[:, force_index], force)
+            fixed_end = fixed_end.set(csdl.slice[:, rotation_index], moment)
+            fixed_end = fixed_end.set(csdl.slice[:, force_index + 6], force)
+            fixed_end = fixed_end.set(csdl.slice[:, rotation_index + 6], -moment)
+        for index in (0, 3):
+            load_half = local_load[:, index] * lengths / 2.0
+            fixed_end = fixed_end.set(csdl.slice[:, index], load_half)
+            fixed_end = fixed_end.set(csdl.slice[:, index + 6], load_half)
+        self.distributed_fixed_end_loads = fixed_end
+        transform_transpose = csdl.einsum(self.transforms, action='ijk->ikj')
+        self.distributed_global_loads = csdl.einsum(transform_transpose, fixed_end, action='ijk,ik->ij')
 
     
     def _lengths(self, mesh)->tuple[csdl.Variable, csdl.Variable, csdl.Variable, csdl.Variable, csdl.Variable]:
@@ -451,7 +477,7 @@ class Beam:
         transformed_displacements = csdl.einsum(tb, displacements, action='ijk,ik->ij')
 
         # Compute loads
-        loads = csdl.einsum(lsb, transformed_displacements, action='ijk,ik->ij')
+        loads = csdl.einsum(lsb, transformed_displacements, action='ijk,ik->ij') - self.distributed_fixed_end_loads
 
         return loads
     
@@ -473,4 +499,3 @@ class Beam:
     #         rmvec += cg * element_masses[i]
 
     #     return beam_mass, rmvec
-

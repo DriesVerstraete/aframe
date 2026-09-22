@@ -8,6 +8,9 @@ patch list.
 
 ## Patches
 
+- `fix-distributed-load-support` — adds per-element uniform global force-density support,
+  consistent local fixed-end loads, global assembly, and corrected local stress recovery.
+
 - `fix-cross-section-stress-recovery` — `CSBox.stress()` and `CSTube.stress()` now evaluate
   each element end directly from its own local `K_local @ u_local` entries. Returns contain a
   separate endpoint axis, preventing incorrect averaging/cancellation of member-end loads.
