@@ -219,6 +219,12 @@ class Frame:
                     idx = map[i]
                     F = F.set(csdl.slice[idx:idx+6], F[idx:idx+6] + loads[i, :])
 
+            for i in range(beam.num_elements):
+                idxa, idxb = map[i], map[i+1]
+                distributed = beam.distributed_global_loads[i]
+                F = F.set(csdl.slice[idxa:idxa+6], F[idxa:idxa+6] + distributed[:6])
+                F = F.set(csdl.slice[idxb:idxb+6], F[idxb:idxb+6] + distributed[6:])
+
         
         # add any inertial loads
         acc = self.acc
