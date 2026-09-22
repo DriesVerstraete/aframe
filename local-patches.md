@@ -8,8 +8,12 @@ patch list.
 
 ## Patches
 
-None yet. Forked 2026-09-22 at `5aaabad` ("Add rotation attribute to Frame class to
-facilitate extraction of rotations") as the wing structural model's foundation for SPARK
+- `fix-cross-section-stress-recovery` — `CSBox.stress()` and `CSTube.stress()` now evaluate
+  each element end directly from its own local `K_local @ u_local` entries. Returns contain a
+  separate endpoint axis, preventing incorrect averaging/cancellation of member-end loads.
+
+Forked 2026-09-22 at `5aaabad` ("Add rotation attribute to Frame class to facilitate
+extraction of rotations") as the wing structural model's foundation for SPARK
 (`01-programs/01-program-csdl-aircraft-design/03-projects/02-spark-structures/`).
 
 ## Known gaps to patch (not yet done)
